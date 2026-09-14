@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f7f8fc">
+<title>FormWheel Vote</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f7f8fc;color:#17181c}
+button,input,textarea{font:inherit}
+button{cursor:pointer;border:0}
+.header{position:sticky;top:0;z-index:10;height:68px;background:rgba(255,255,255,.9);backdrop-filter:blur(14px);border-bottom:1px solid #e8e9ed;display:flex;align-items:center;padding:0 22px}
+.logo{font-weight:900;font-size:23px;letter-spacing:-1px;text-decoration:none;color:#17181c}
+.logo span{font-weight:500;color:#777}
+.logo .wheel{display:inline-flex;width:25px;height:25px;border:4px solid #17181c;border-radius:50%;vertical-align:-4px;margin:0 4px;position:relative}
+.logo .wheel:after{content:"";position:absolute;width:5px;height:5px;background:#17181c;border-radius:50%;left:6px;top:6px}
+main{max-width:850px;margin:0 auto;padding:42px 20px 70px}
+.hero{text-align:center;margin-bottom:28px}
+.hero h1{font-size:42px;margin:0 0 10px;letter-spacing:-2px}
+.hero p{color:#73757c;margin:0}
+.card{background:#fff;border:1px solid #e5e6eb;border-radius:20px;padding:24px;box-shadow:0 8px 30px rgba(20,20,30,.05);margin-bottom:18px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#f0f1f4;padding:5px;border-radius:14px;margin-bottom:20px}
+.tab{padding:12px;border-radius:10px;background:transparent;font-weight:800;color:#74767d}
+.tab.active{background:#fff;color:#17181c;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+label{display:block;font-size:14px;font-weight:800;margin:15px 0 7px}
+input,textarea{width:100%;border:1px solid #dfe1e6;border-radius:12px;padding:12px 14px;outline:none;background:#fff}
+input:focus,textarea:focus{border-color:#777}
+textarea{min-height:90px;resize:vertical}
+.choice-row{display:flex;gap:8px;margin-bottom:9px}
+.choice-row input{flex:1}
+.remove{width:42px;border-radius:11px;background:#f0f1f4;color:#555;font-weight:900}
+.primary{width:100%;padding:14px;border-radius:13px;background:#17181c;color:#fff;font-weight:850;margin-top:18px}
+.secondary{padding:11px 14px;border-radius:11px;background:#f0f1f4;font-weight:800}
+.code{font-size:38px;font-weight:950;letter-spacing:8px;text-align:center;padding:15px;background:#f7f8fc;border-radius:15px;margin:14px 0}
+.center{text-align:center}
+.hidden{display:none!important}
+.option{width:100%;padding:16px;text-align:left;border:1px solid #e1e2e7;background:#fff;border-radius:13px;margin:8px 0;font-weight:750;transition:.15s}
+.option:hover{background:#f7f8fc}
+.option.selected{border:2px solid #17181c;background:#f0f1f4}
+.result{margin:12px 0}
+.result-head{display:flex;justify-content:space-between;font-weight:800;margin-bottom:6px}
+.bar{height:12px;background:#eceef2;border-radius:99px;overflow:hidden}
+.fill{height:100%;background:#17181c;border-radius:99px;width:0}
+.small{font-size:13px;color:#7b7d84}
+.notice{padding:12px 14px;border-radius:12px;background:#f5f5f7;color:#5e6067;font-size:14px;margin-top:12px}
+.error{color:#b42318;font-size:14px;margin-top:10px}
+@media(max-width:600px){.hero h1{font-size:34px}.card{padding:18px}}
+</style>
+</head>
+<body>
+<header class="header">
+<a class="logo" href="https://semicolonxss.github.io/Formwheel/">Form<span class="wheel"></span>Wheel</a>
+</header>
+
+<main>
+<section class="hero">
+<h1>Vote</h1>
+<p>간단하게 투표방을 만들고 친구들과 함께 투표해보세요.</p>
+</section>
+
+<div id="home">
+<div class="card">
+<div class="tabs">
+<button class="tab active" id="createTab">방 만들기</button>
+<button class="tab" id="joinTab">방 참가</button>
+</div>
+
+<div id="createBox">
+<label>투표 제목</label>
+<input id="title" maxlength="80" placeholder="예: 오늘 뭐 먹을까?">
+
+<label>선택지</label>
+<div id="choices">
+<div class="choice-row"><input maxlength="50" placeholder="선택지 1"><button class="remove" onclick="removeChoice(this)">×</button></div>
+<div class="choice-row"><input maxlength="50" placeholder="선택지 2"><button class="remove" onclick="removeChoice(this)">×</button></div>
+</div>
+<button class="secondary" onclick="addChoice()">+ 선택지 추가</button>
+<button class="primary" onclick="createRoom()">투표방 만들기</button>
+<div id="createError" class="error"></div>
+</div>
+
+<div id="joinBox" class="hidden">
+<label>방 코드</label>
+<input id="joinCode" maxlength="4" inputmode="numeric" placeholder="4자리 코드">
+<label>닉네임</label>
+<input id="joinName" maxlength="12" placeholder="닉네임">
+<button class="primary" onclick="joinRoom()">참가하기</button>
+<div id="joinError" class="error"></div>
+</div>
+</div>
+</div>
+
+<div id="room" class="hidden">
+<div class="card center">
+<div class="small">방 코드</div>
+<div class="code" id="roomCode">----</div>
+<div id="hostBadge" class="small"></div>
+</div>
+
+<div class="card">
+<h2 id="voteTitle"></h2>
+<div id="voteState" class="small"></div>
+<div id="options"></div>
+<button id="voteButton" class="primary" onclick="submitVote()">투표하기</button>
+<div id="voteNotice" class="notice hidden"></div>
+</div>
+
+<div class="card">
+<h3>현재 결과</h3>
+<div id="results"></div>
+</div>
+
+<div id="hostControls" class="card hidden">
+<h3>방장 관리</h3>
+<button class="primary" id="startButton" onclick="startVote()">투표 시작</button>
+<button class="primary hidden" id="endButton" onclick="endVote()">투표 종료</button>
+</div>
+
+<div class="center">
+<button class="secondary" onclick="leaveRoom()">나가기</button>
+</div>
+</div>
+</main>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import {getDatabase,ref,set,get,update,onValue} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+
+/*
+ * Firebase 설정
+ * 아래 값을 본인의 Firebase Web App 설정으로 교체하세요.
+ */
+const firebaseConfig={
+  apiKey:"YOUR_API_KEY",
+  authDomain:"formwheel.firebaseapp.com",
+  databaseURL:"https://formwheel-default-rtdb.firebaseio.com",
+  projectId:"formwheel",
+  storageBucket:"formwheel.firebasestorage.app",
+  messagingSenderId:"YOUR_MESSAGING_SENDER_ID",
+  appId:"YOUR_APP_ID"
+};
+
+const app=initializeApp(firebaseConfig);
+const db=getDatabase(app);
+
+let currentCode="";
+let currentName="";
+let isHost=false;
+let selected=-1;
+let unsubscribe=null;
+
+const $=id=>document.getElementById(id);
+
+$("createTab").onclick=()=>{
+  $("createTab").classList.add("active");$("joinTab").classList.remove("active");
+  $("createBox").classList.remove("hidden");$("joinBox").classList.add("hidden");
+};
+$("joinTab").onclick=()=>{
+  $("joinTab").classList.add("active");$("createTab").classList.remove("active");
+  $("joinBox").classList.remove("hidden");$("createBox").classList.add("hidden");
+};
+
+window.addChoice=()=>{
+  const rows=$("choices").querySelectorAll(".choice-row");
+  if(rows.length>=10)return;
+  const row=document.createElement("div");
+  row.className="choice-row";
+  row.innerHTML='<input maxlength="50" placeholder="선택지 '+(rows.length+1)+'"><button class="remove">×</button>';
+  row.querySelector("button").onclick=()=>removeChoice(row.querySelector("button"));
+  $("choices").appendChild(row);
+};
+window.removeChoice=btn=>{
+  const rows=$("choices").querySelectorAll(".choice-row");
+  if(rows.length<=2)return;
+  btn.parentElement.remove();
+};
+
+function makeCode(){
+  return String(Math.floor(1000+Math.random()*9000));
+}
+
+window.createRoom=async()=>{
+  $("createError").textContent="";
+  const title=$("title").value.trim();
+  const choices=[...$("choices").querySelectorAll("input")].map(x=>x.value.trim()).filter(Boolean);
+  if(!title)return $("createError").textContent="투표 제목을 입력해주세요.";
+  if(choices.length<2)return $("createError").textContent="선택지를 2개 이상 입력해주세요.";
+  if(new Set(choices).size!==choices.length)return $("createError").textContent="선택지는 서로 달라야 합니다.";
+
+  let code=makeCode(), tries=0;
+  while((await get(ref(db,"vote/"+code))).exists() && tries++<10)code=makeCode();
+
+  const data={
+    title,
+    choices,
+    status:"waiting",
+    createdAt:Date.now(),
+    host:"방장"
+  };
+  await set(ref(db,"vote/"+code),data);
+  currentCode=code;currentName="방장";isHost=true;
+  openRoom();
+};
+
+window.joinRoom=async()=>{
+  $("joinError").textContent="";
+  const code=$("joinCode").value.trim();
+  const name=$("joinName").value.trim();
+  if(!/^\d{4}$/.test(code))return $("joinError").textContent="4자리 방 코드를 입력해주세요.";
+  if(!name)return $("joinError").textContent="닉네임을 입력해주세요.";
+  const snap=await get(ref(db,"vote/"+code));
+  if(!snap.exists())return $("joinError").textContent="존재하지 않는 방입니다.";
+  currentCode=code;currentName=name;isHost=false;
+  openRoom();
+};
+
+function openRoom(){
+  $("home").classList.add("hidden");
+  $("room").classList.remove("hidden");
+  $("roomCode").textContent=currentCode;
+  $("hostBadge").textContent=isHost?"👑 방장":"참가자: "+currentName;
+  selected=-1;
+  if(unsubscribe)unsubscribe();
+  unsubscribe=onValue(ref(db,"vote/"+currentCode),snap=>{
+    if(!snap.exists()){
+      alert("방이 종료되었습니다.");
+      location.reload();
+      return;
+    }
+    renderRoom(snap.val());
+  });
+}
+
+function renderRoom(data){
+  $("voteTitle").textContent=data.title;
+  $("voteState").textContent=
+    data.status==="waiting"?"방장이 투표를 시작할 때까지 기다려주세요.":
+    data.status==="active"?"투표가 진행 중입니다.":"투표가 종료되었습니다.";
+
+  $("hostControls").classList.toggle("hidden",!isHost);
+  $("startButton").classList.toggle("hidden",data.status!=="waiting");
+  $("endButton").classList.toggle("hidden",data.status!=="active");
+
+  const options=$("options");
+  options.innerHTML="";
+  data.choices.forEach((choice,i)=>{
+    const b=document.createElement("button");
+    b.className="option"+(selected===i?" selected":"");
+    b.textContent=choice;
+    b.disabled=data.status!=="active";
+    b.onclick=()=>{selected=i;renderRoom(data)};
+    options.appendChild(b);
+  });
+
+  $("voteButton").disabled=data.status!=="active"||selected<0;
+  $("voteButton").classList.toggle("hidden",data.status==="ended");
+
+  const counts=data.votes||{};
+  const total=Object.values(counts).reduce((a,b)=>a+b,0);
+  $("results").innerHTML="";
+  data.choices.forEach((choice,i)=>{
+    const count=counts[i]||0;
+    const percent=total?Math.round(count/total*100):0;
+    const box=document.createElement("div");
+    box.className="result";
+    box.innerHTML='<div class="result-head"><span></span><span>'+count+'표 ('+percent+'%)</span></div><div class="bar"><div class="fill" style="width:'+percent+'%"></div></div>';
+    box.querySelector(".result-head span").textContent=choice;
+    $("results").appendChild(box);
+  });
+
+  $("voteNotice").classList.toggle("hidden",data.status!=="ended");
+  $("voteNotice").textContent=data.status==="ended"?"투표가 종료되었습니다.":"";
+}
+
+window.submitVote=async()=>{
+  if(selected<0)return;
+  const snap=await get(ref(db,"vote/"+currentCode));
+  if(!snap.exists())return;
+  const data=snap.val();
+  if(data.status!=="active")return;
+  const votes=data.votes||{};
+  const voters=data.voters||{};
+  if(voters[currentName])return alert("이미 투표했습니다.");
+  votes[selected]=(votes[selected]||0)+1;
+  voters[currentName]=selected;
+  await update(ref(db,"vote/"+currentCode),{votes,voters});
+  $("voteButton").classList.add("hidden");
+  $("voteNotice").classList.remove("hidden");
+  $("voteNotice").textContent="투표가 완료되었습니다.";
+};
+
+window.startVote=async()=>{
+  await update(ref(db,"vote/"+currentCode),{status:"active",votes:{},voters:{}});
+};
+window.endVote=async()=>{
+  await update(ref(db,"vote/"+currentCode),{status:"ended"});
+};
+window.leaveRoom=()=>{
+  if(unsubscribe)unsubscribe();
+  location.reload();
+};
+</script>
+</body>
+</html>
