@@ -34,13 +34,13 @@
 </div>
 
 <div id="createBox">
-<label>투표 제목</label>
+<label for="title">투표 제목</label>
 <input id="title" maxlength="80" placeholder="예: 오늘 뭐 먹을까?">
 
 <label>선택지</label>
 <div id="choices">
-<div class="choice-row"><input maxlength="50" placeholder="선택지 1"><button class="remove" onclick="removeChoice(this)">×</button></div>
-<div class="choice-row"><input maxlength="50" placeholder="선택지 2"><button class="remove" onclick="removeChoice(this)">×</button></div>
+<div class="choice-row"><input maxlength="50" placeholder="선택지 1" id="fw-input-1" aria-label="선택지 1"><button class="remove" onclick="removeChoice(this)">×</button></div>
+<div class="choice-row"><input maxlength="50" placeholder="선택지 2" id="fw-input-2" aria-label="선택지 2"><button class="remove" onclick="removeChoice(this)">×</button></div>
 </div>
 <button class="secondary" onclick="addChoice()">+ 선택지 추가</button>
 <button class="primary" onclick="createRoom()">투표방 만들기</button>
@@ -48,9 +48,9 @@
 </div>
 
 <div id="joinBox" class="hidden">
-<label>방 코드</label>
+<label for="joinCode">방 코드</label>
 <input id="joinCode" maxlength="4" inputmode="numeric" placeholder="4자리 코드">
-<label>닉네임</label>
+<label for="joinName">닉네임</label>
 <input id="joinName" maxlength="12" placeholder="닉네임">
 <button class="primary" onclick="joinRoom()">참가하기</button>
 <div id="joinError" class="error"></div>
