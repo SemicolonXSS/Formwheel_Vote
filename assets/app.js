@@ -1,5 +1,5 @@
 import {initializeApp} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import {getDatabase,ref,set,get,update,onValue,runTransaction} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import {getDatabase,ref,set,get,onValue,runTransaction,serverTimestamp} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
 /*
  * Firebase 설정
@@ -72,7 +72,7 @@ window.createRoom=async()=>{
     let code="";
     for(let i=0;i<20;i++){
       const candidate=makeCode();
-      const claim=await runTransaction(ref(db,"vote/"+candidate),cur=>cur?undefined:{title,choices,status:"waiting",createdAt:Date.now(),host:voterId},{applyLocally:false});
+      const claim=await runTransaction(ref(db,"vote/v2/"+candidate),cur=>cur?undefined:{title,choices,status:"waiting",createdAt:serverTimestamp(),host:voterId},{applyLocally:false});
       if(claim.committed){code=candidate;break;}
     }
     if(!code)throw new Error("방 코드 생성에 실패했습니다. 다시 시도해주세요.");
@@ -88,7 +88,9 @@ window.joinRoom=async()=>{
   if(!/^\d{4}$/.test(code))return $("joinError").textContent="4자리 방 코드를 입력해주세요.";
   if(!name)return $("joinError").textContent="닉네임을 입력해주세요.";
   try{await authReady;}catch{return $("joinError").textContent="인증에 실패했습니다."}
-  const snap=await get(ref(db,"vote/"+code));
+  let snap;
+  try{snap=await get(ref(db,"vote/v2/"+code));}
+  catch(error){$("joinError").textContent="방을 확인하지 못했어요. "+(error.code||error.message);return;}
   if(!snap.exists())return $("joinError").textContent="존재하지 않는 방입니다.";
   currentCode=code;currentName=name;isHost=false;
   openRoom();
@@ -101,7 +103,7 @@ function openRoom(){
   $("hostBadge").textContent=isHost?"👑 방장":"참가자: "+currentName;
   selected=-1;
   if(unsubscribe)unsubscribe();
-  unsubscribe=onValue(ref(db,"vote/"+currentCode),snap=>{
+  unsubscribe=onValue(ref(db,"vote/v2/"+currentCode),snap=>{
     if(!snap.exists()){
       alert("방이 종료되었습니다.");
       location.reload();
@@ -118,14 +120,15 @@ function renderRoom(data){
     data.status==="active"?"투표가 진행 중입니다.":"투표가 종료되었습니다.";
 
   isHost=data.host===voterId;
-  const voted=Object.prototype.hasOwnProperty.call(data.voters||{},voterId);
+  const voted=Object.prototype.hasOwnProperty.call(data.ballots||{},voterId);
   $("hostControls").classList.toggle("hidden",!isHost);
   $("startButton").classList.toggle("hidden",data.status!=="waiting");
   $("endButton").classList.toggle("hidden",data.status!=="active");
 
   const options=$("options");
   options.innerHTML="";
-  data.choices.forEach((choice,i)=>{
+  Object.entries(data.choices).forEach(([key,choice])=>{
+    const i=Number(key);
     const b=document.createElement("button");
     b.className="option"+(selected===i?" selected":"");
     b.textContent=choice;
@@ -137,10 +140,13 @@ function renderRoom(data){
   $("voteButton").disabled=data.status!=="active"||selected<0||voted;
   $("voteButton").classList.toggle("hidden",data.status==="ended");
 
-  const counts=data.votes||{};
-  const total=Object.values(counts).reduce((a,b)=>a+b,0);
+  const counts={};
+  const ballots=Object.values(data.ballots||{});
+  for(const choice of ballots)counts[choice]=(counts[choice]||0)+1;
+  const total=ballots.length;
   $("results").innerHTML="";
-  data.choices.forEach((choice,i)=>{
+  Object.entries(data.choices).forEach(([key,choice])=>{
+    const i=Number(key);
     const count=counts[i]||0;
     const percent=total?Math.round(count/total*100):0;
     const box=document.createElement("div");
@@ -157,26 +163,20 @@ function renderRoom(data){
 window.submitVote=async()=>{
  if(selected<0||!voterId)return;const choice=selected;
  try{
- const res=await runTransaction(ref(db,"vote/"+currentCode),data=>{
-  if(!data||data.status!=="active"||choice>=data.choices.length||Object.prototype.hasOwnProperty.call(data.voters||{},voterId))return;
-  data.votes=data.votes||{};data.voters=data.voters||{};
-  data.votes[choice]=Number(data.votes[choice]||0)+1;data.voters[voterId]=choice;return data;
- },{applyLocally:false});
- $("voteNotice").classList.remove("hidden");$("voteNotice").textContent=res.committed?"투표가 완료되었습니다.":"이미 투표했거나 투표가 종료되었습니다.";
+ await set(ref(db,"vote/v2/"+currentCode+"/ballots/"+voterId),choice);
+ $("voteNotice").classList.remove("hidden");$("voteNotice").textContent="투표가 완료되었습니다.";
  }catch{$("voteNotice").classList.remove("hidden");$("voteNotice").textContent="저장에 실패했습니다. 다시 제출해주세요.";}
 };
-window.startVote=async()=>{
- await runTransaction(ref(db,"vote/"+currentCode),data=>{
-  if(!data||data.host!==voterId||data.status!=="waiting")return;
-  data.status="active";data.votes={};data.voters={};return data;
- },{applyLocally:false});
-};
-window.endVote=async()=>{
- await runTransaction(ref(db,"vote/"+currentCode),data=>{
-  if(!data||data.host!==voterId||data.status!=="active")return;
-  data.status="ended";return data;
- },{applyLocally:false});
-};
+async function changeStatus(status){
+  if(!isHost||!currentCode)return;
+  try{await set(ref(db,"vote/v2/"+currentCode+"/status"),status);}
+  catch(error){
+    $("voteNotice").classList.remove("hidden");
+    $("voteNotice").textContent="투표 상태를 바꾸지 못했어요. "+(error.code||error.message);
+  }
+}
+window.startVote=()=>changeStatus("active");
+window.endVote=()=>changeStatus("ended");
 window.leaveRoom=()=>{
   if(unsubscribe)unsubscribe();
   location.reload();
